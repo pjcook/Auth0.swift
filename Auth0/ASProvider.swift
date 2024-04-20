@@ -9,28 +9,34 @@ extension WebAuthentication {
         return { url, callback in
             let session: ASWebAuthenticationSession
 
-            #if compiler(>=5.10)
-            if #available(iOS 17.4, macOS 14.4, *) {
-                if redirectURL.scheme == "https" {
-                    session = ASWebAuthenticationSession(url: url,
-                                                         callback: .https(host: redirectURL.host!,
-                                                                          path: redirectURL.path),
-                                                         completionHandler: completionHandler(callback))
+            if #available(visionOS 1.1, *) {
+#if compiler(>=5.10)
+                if #available(iOS 17.4, macOS 14.4, *) {
+                    if redirectURL.scheme == "https" {
+                        session = ASWebAuthenticationSession(url: url,
+                                                             callback: .https(host: redirectURL.host!,
+                                                                              path: redirectURL.path),
+                                                             completionHandler: completionHandler(callback))
+                    } else {
+                        session = ASWebAuthenticationSession(url: url,
+                                                             callback: .customScheme(redirectURL.scheme!),
+                                                             completionHandler: completionHandler(callback))
+                    }
                 } else {
                     session = ASWebAuthenticationSession(url: url,
-                                                         callback: .customScheme(redirectURL.scheme!),
+                                                         callbackURLScheme: redirectURL.scheme,
                                                          completionHandler: completionHandler(callback))
                 }
+#else
+                session = ASWebAuthenticationSession(url: url,
+                                                     callbackURLScheme: redirectURL.scheme,
+                                                     completionHandler: completionHandler(callback))
+#endif
             } else {
                 session = ASWebAuthenticationSession(url: url,
                                                      callbackURLScheme: redirectURL.scheme,
                                                      completionHandler: completionHandler(callback))
             }
-            #else
-            session = ASWebAuthenticationSession(url: url,
-                                                 callbackURLScheme: redirectURL.scheme,
-                                                 completionHandler: completionHandler(callback))
-            #endif
 
             session.prefersEphemeralWebBrowserSession = ephemeralSession
 
@@ -57,7 +63,10 @@ extension WebAuthentication {
     }
 }
 
-class ASUserAgent: NSObject, WebAuthUserAgent {
+class ASUserAgent: NSObject, WebAuthUserAgent, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        .init()
+    }
 
     let session: ASWebAuthenticationSession
     let callback: WebAuthProviderCallback
